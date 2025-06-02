@@ -53,40 +53,47 @@ async def get_infogreffe_info(siren):
             return "Erreur", "Erreur"
 
 @app.route('/scrape', methods=['POST'])
-async def scrape_and_update():
-    data = request.get_json()
-    siren = data.get("siren")
+async def scrape_all_missing():
+    updates = []
 
-    if not siren:
-        return jsonify({"error": "SIREN manquant"}), 400
-
-    dirigeant, ca = await get_infogreffe_info(siren)
-
-    # Recherche de la ligne dans la feuille
+    # Lire toutes les lignes
     rows = worksheet.get_all_values()
-    for i, row in enumerate(rows[1:], start=2):
-        if len(row) > siren_col and row[siren_col] == siren:
-            updates = [
-                {
-                    'range': gspread.utils.rowcol_to_a1(i, dirigeant_col + 1),
-                    'values': [[dirigeant]]
-                },
-                {
-                    'range': gspread.utils.rowcol_to_a1(i, ca_col + 1),
-                    'values': [[ca]]
-                }
-            ]
-            worksheet.batch_update(updates)
-            return jsonify({
-                "siren": siren,
-                "ligne": i,
-                "dirigeant": dirigeant,
-                "chiffre_affaire": ca
-            })
 
-    return jsonify({
-        "message": "SIREN non trouvé dans la feuille",
-        "siren": siren,
-        "dirigeant": dirigeant,
-        "chiffre_affaire": ca
-    })
+    for i, row in enumerate(rows[1:], start=2):
+        siren = row[siren_col] if len(row) > siren_col else ""
+        dirigeant_val = row[dirigeant_col] if len(row) > dirigeant_col else ""
+        ca_val = row[ca_col] if len(row) > ca_col else ""
+
+        if not siren or dirigeant_val or ca_val:
+            continue
+
+        print(f"🔍 Traitement {siren}")
+        dirigeant, ca = await get_infogreffe_info(siren)
+
+        if dirigeant in ["Non trouvé", "Erreur"] and ca in ["Non trouvé", "Erreur"]:
+            continue
+
+        print(f"✅ À mettre à jour : ligne {i} → {dirigeant} | {ca}")
+
+        updates.append({
+            'range': gspread.utils.rowcol_to_a1(i, dirigeant_col + 1),
+            'values': [[dirigeant]]
+        })
+        updates.append({
+            'range': gspread.utils.rowcol_to_a1(i, ca_col + 1),
+            'values': [[ca]]
+        })
+
+    if updates:
+        worksheet.batch_update(updates)
+        return jsonify({
+            "message": f"{len(updates)//2} lignes mises à jour.",
+            "status": "success",
+            "updates": len(updates)//2
+        })
+    else:
+        return jsonify({
+            "message": "Aucune mise à jour nécessaire.",
+            "status": "success",
+            "updates": 0
+        })
