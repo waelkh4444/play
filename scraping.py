@@ -4,6 +4,7 @@ import gspread.utils
 from flask import Flask, request, jsonify
 from playwright.async_api import async_playwright
 import os
+import json
 
 app = Flask(__name__)
 
