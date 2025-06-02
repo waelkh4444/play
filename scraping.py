@@ -7,7 +7,9 @@ from playwright.async_api import async_playwright
 app = Flask(__name__)
 
 # Connexion à Google Sheet
-gc = gspread.service_account(filename='C:/Users/Wael Khanfir/Downloads/credential.json')
+creds_json = os.getenv("GOOGLE_SHEETS_CREDENTIALS")
+creds_dict = json.loads(creds_json)
+gc = gspread.service_account_from_dict(creds_dict)
 sh = gc.open("base_insee")
 worksheet = sh.sheet1
 headers = worksheet.row_values(1)
