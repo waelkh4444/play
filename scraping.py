@@ -28,7 +28,6 @@ async def get_infogreffe_info(siren):
             await page.goto(url, timeout=15000)
             await page.wait_for_timeout(5000)
 
-            # Dirigeant
             try:
                 dirigeant_elem = await page.query_selector(
                     "//div[@data-testid='block-representant-legal']//div[contains(@class, 'textData')]"
@@ -37,7 +36,6 @@ async def get_infogreffe_info(siren):
             except:
                 dirigeant = "Non trouvé"
 
-            # Chiffre d'affaires
             try:
                 ca_elem = await page.query_selector("div[data-testid='ca']")
                 ca = await ca_elem.inner_text() if ca_elem else "Non trouvé"
@@ -50,16 +48,18 @@ async def get_infogreffe_info(siren):
         except Exception as e:
             await browser.close()
             print(f"❌ Erreur {siren} : {str(e)}")
-            return "Erreur", "Erreur"
+            return "Non trouvé", "Non trouvé"
 
 @app.route('/scrape', methods=['POST'])
 async def scrape_all_missing():
     updates = []
-
-    # Lire toutes les lignes
     rows = worksheet.get_all_values()
+    count = 0  # compteur pour limiter à 10 traitements
 
     for i, row in enumerate(rows[1:], start=2):
+        if count >= 10:
+            break
+
         siren = row[siren_col] if len(row) > siren_col else ""
         dirigeant_val = row[dirigeant_col] if len(row) > dirigeant_col else ""
         ca_val = row[ca_col] if len(row) > ca_col else ""
@@ -70,26 +70,25 @@ async def scrape_all_missing():
         print(f"🔍 Traitement {siren}")
         dirigeant, ca = await get_infogreffe_info(siren)
 
-        if dirigeant in ["Non trouvé", "Erreur"] and ca in ["Non trouvé", "Erreur"]:
-            continue
-
         print(f"✅ À mettre à jour : ligne {i} → {dirigeant} | {ca}")
 
         updates.append({
             'range': gspread.utils.rowcol_to_a1(i, dirigeant_col + 1),
-            'values': [[dirigeant]]
+            'values': [[dirigeant or "Non trouvé"]]
         })
         updates.append({
             'range': gspread.utils.rowcol_to_a1(i, ca_col + 1),
-            'values': [[ca]]
+            'values': [[ca or "Non trouvé"]]
         })
+
+        count += 1
 
     if updates:
         worksheet.batch_update(updates)
         return jsonify({
-            "message": f"{len(updates)//2} lignes mises à jour.",
+            "message": f"{count} lignes mises à jour.",
             "status": "success",
-            "updates": len(updates)//2
+            "updates": count
         })
     else:
         return jsonify({
