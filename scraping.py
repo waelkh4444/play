@@ -42,22 +42,23 @@ async def get_infogreffe_info(siren):
             except:
                 ca = "Non trouvé"
 
-            await browser.close()
-            return dirigeant, ca
-
         except Exception as e:
-            await browser.close()
             print(f"❌ Erreur {siren} : {str(e)}")
-            return "Non trouvé", "Non trouvé"
+            dirigeant, ca = "Non trouvé", "Non trouvé"
+        finally:
+            await page.close()
+            await browser.close()
+
+        return dirigeant, ca
 
 @app.route('/scrape', methods=['POST'])
 async def scrape_all_missing():
     updates = []
     rows = worksheet.get_all_values()
-    count = 0  # compteur pour limiter à 10 traitements
+    count = 0
 
     for i, row in enumerate(rows[1:], start=2):
-        if count >= 8:
+        if count >= 20:
             break
 
         siren = row[siren_col] if len(row) > siren_col else ""
@@ -69,7 +70,6 @@ async def scrape_all_missing():
 
         print(f"🔍 Traitement {siren}")
         dirigeant, ca = await get_infogreffe_info(siren)
-
         print(f"✅ À mettre à jour : ligne {i} → {dirigeant} | {ca}")
 
         updates.append({
@@ -82,6 +82,9 @@ async def scrape_all_missing():
         })
 
         count += 1
+
+        # ✅ Pause d’1 seconde pour soulager la RAM
+        await asyncio.sleep(2)
 
     if updates:
         worksheet.batch_update(updates)
