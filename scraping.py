@@ -58,7 +58,7 @@ async def scrape_all_missing():
     count = 0
 
     for i, row in enumerate(rows[1:], start=2):
-        if count >= 20:
+        if count >= 8:
             break
 
         siren = row[siren_col] if len(row) > siren_col else ""
@@ -83,7 +83,7 @@ async def scrape_all_missing():
 
         count += 1
 
-        # ✅ Pause d’1 seconde pour soulager la RAM
+        # ✅ Pause 2 seconde pour soulager la RAM
         await asyncio.sleep(2)
 
     if updates:
