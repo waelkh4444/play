@@ -57,7 +57,7 @@ async def scrape_all_missing():
     count = 0  # compteur pour limiter à 10 traitements
 
     for i, row in enumerate(rows[1:], start=2):
-        if count >= 10:
+        if count >= 8:
             break
 
         siren = row[siren_col] if len(row) > siren_col else ""
